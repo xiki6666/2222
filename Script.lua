@@ -1,29 +1,55 @@
 local player = game.Players.LocalPlayer
-local playerScripts = player:WaitForChild("PlayerScripts")
 local playerGui = player:WaitForChild("PlayerGui")
-
--- Создание GUI
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "ProximityPromptGUI"
-screenGui.Parent = playerGui
-
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 150, 0, 60)
-frame.Position = UDim2.new(0.5, -75, 0, 10)
-frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-frame.Parent = screenGui
-
-local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size = UDim2.new(0.8, 0, 0.6, 0)
-toggleBtn.Position = UDim2.new(0.1, 0, 0.2, 0)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
-toggleBtn.Text = "ВЫКЛ"
-toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleBtn.Parent = frame
 
 -- Переменные состояния
 local enabled = false
 local originalDurations = {}
+local screenGui = nil
+local frame = nil
+local toggleBtn = nil
+
+-- Функция для создания GUI
+local function createGUI()
+    -- Удаляем старый GUI если существует
+    if screenGui then
+        screenGui:Destroy()
+    end
+    
+    -- Создание GUI
+    screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "ProximityPromptGUI"
+    screenGui.Parent = playerGui
+    screenGui.ResetOnSpawn = false -- Это ключевая настройка!
+
+    frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 150, 0, 60)
+    frame.Position = UDim2.new(0.5, -75, 0, 10)
+    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    frame.Parent = screenGui
+
+    toggleBtn = Instance.new("TextButton")
+    toggleBtn.Size = UDim2.new(0.8, 0, 0.6, 0)
+    toggleBtn.Position = UDim2.new(0.1, 0, 0.2, 0)
+    toggleBtn.BackgroundColor3 = enabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(170, 0, 0)
+    toggleBtn.Text = enabled and "ВКЛ" or "ВЫКЛ"
+    toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleBtn.Parent = frame
+
+    -- Информационный текст
+    local infoLabel = Instance.new("TextLabel")
+    infoLabel.Size = UDim2.new(1, 0, 0.3, 0)
+    infoLabel.Position = UDim2.new(0, 0, 0.7, 0)
+    infoLabel.BackgroundTransparency = 1
+    infoLabel.Text = "J - скрыть GUI"
+    infoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    infoLabel.TextScaled = true
+    infoLabel.Parent = frame
+    
+    return screenGui
+end
+
+-- Создаем GUI при запуске
+createGUI()
 
 -- Функция для применения изменений ко всем промптам
 local function updateAllPrompts()
@@ -66,12 +92,15 @@ updateAllPrompts()
 local function toggleProximityPrompts()
     enabled = not enabled
     
-    if enabled then
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-        toggleBtn.Text = "ВКЛ"
-    else
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
-        toggleBtn.Text = "ВЫКЛ"
+    -- Обновляем кнопку
+    if toggleBtn then
+        if enabled then
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+            toggleBtn.Text = "ВКЛ"
+        else
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+            toggleBtn.Text = "ВЫКЛ"
+        end
     end
     
     -- Применяем изменения ко всем промптам
@@ -79,22 +108,38 @@ local function toggleProximityPrompts()
 end
 
 -- Обработчик клика по кнопке
-toggleBtn.MouseButton1Click:Connect(toggleProximityPrompts)
+if toggleBtn then
+    toggleBtn.MouseButton1Click:Connect(toggleProximityPrompts)
+end
 
 -- Скрытие GUI по клавише J
 local uis = game:GetService("UserInputService")
 uis.InputBegan:Connect(function(input, processed)
     if not processed and input.KeyCode == Enum.KeyCode.J then
-        screenGui.Enabled = not screenGui.Enabled
+        if screenGui then
+            screenGui.Enabled = not screenGui.Enabled
+        end
     end
 end)
 
--- Информационный текст
-local infoLabel = Instance.new("TextLabel")
-infoLabel.Size = UDim2.new(1, 0, 0.3, 0)
-infoLabel.Position = UDim2.new(0, 0, 0.7, 0)
-infoLabel.BackgroundTransparency = 1
-infoLabel.Text = "J - скрыть GUI"
-infoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-infoLabel.TextScaled = true
-infoLabel.Parent = frame
+-- Обработчик возрождения игрока
+local function onCharacterAdded(character)
+    -- При возрождении пересоздаем GUI, сохраняя текущее состояние
+    createGUI()
+    
+    -- Переподписываем обработчик клика
+    if toggleBtn then
+        toggleBtn.MouseButton1Click:Connect(toggleProximityPrompts)
+    end
+    
+    -- Обновляем все промпты после возрождения
+    updateAllPrompts()
+end
+
+-- Подписываемся на событие появления персонажа
+player.CharacterAdded:Connect(onCharacterAdded)
+
+-- Если персонаж уже существует, тоже подписываемся
+if player.Character then
+    onCharacterAdded(player.Character)
+end
