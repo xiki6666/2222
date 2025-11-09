@@ -394,7 +394,7 @@ speedhackInput.FocusLost:Connect(function(enterPressed)
 	else
 		speedhackInput.Text = ""
 	end
-end
+end)
 
 -- Функции настройки клавиш
 local function setSpeedhackKeybind()
