@@ -2,7 +2,15 @@ local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
+
+-- Функция для ожидания появления персонажа
+local function waitForCharacter()
+    local character = player.Character
+    if character then
+        return character
+    end
+    return player.CharacterAdded:Wait()
+end
 
 -- Настройки телепортации
 local teleportPoints = {
@@ -12,18 +20,25 @@ local teleportPoints = {
 
 -- Функция моментальной телепортации
 local function instantTeleport(targetPosition)
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-    character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+    local character = waitForCharacter()
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+    end
 end
 
 -- Основной цикл телепортации
 while true do
     for index, point in ipairs(teleportPoints) do
         instantTeleport(point)
-        wait(2) -- Ожидание между точками
+        wait(1) -- Ожидание 1 секунда между телепортами
     end
     
     -- Автоматический перезаход на другой сервер
-    TeleportService:Teleport(game.PlaceId, player)
-    wait(2) -- Задержка перед повторной попыткой если телепортация не удалась
+    local success, error = pcall(function()
+        TeleportService:Teleport(game.PlaceId, player)
+    end)
+    
+    if not success then
+        wait(5) -- Если ошибка, ждем 5 секунд перед повторной попыткой
+    end
 end
