@@ -1,145 +1,29 @@
-local player = game.Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
 
--- Переменные состояния
-local enabled = false
-local originalDurations = {}
-local screenGui = nil
-local frame = nil
-local toggleBtn = nil
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
 
--- Функция для создания GUI
-local function createGUI()
-    -- Удаляем старый GUI если существует
-    if screenGui then
-        screenGui:Destroy()
-    end
-    
-    -- Создание GUI
-    screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "ProximityPromptGUI"
-    screenGui.Parent = playerGui
-    screenGui.ResetOnSpawn = false -- Это ключевая настройка!
+-- Настройки телепортации
+local teleportPoints = {
+    Vector3.new(172.26, 47.47, 426.68),
+    Vector3.new(170.43, 3.66, 474.95)
+}
 
-    frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 150, 0, 60)
-    frame.Position = UDim2.new(0.5, -75, 0, 10)
-    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    frame.Parent = screenGui
-
-    toggleBtn = Instance.new("TextButton")
-    toggleBtn.Size = UDim2.new(0.8, 0, 0.6, 0)
-    toggleBtn.Position = UDim2.new(0.1, 0, 0.2, 0)
-    toggleBtn.BackgroundColor3 = enabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(170, 0, 0)
-    toggleBtn.Text = enabled and "ВКЛ" or "ВЫКЛ"
-    toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    toggleBtn.Parent = frame
-
-    -- Информационный текст
-    local infoLabel = Instance.new("TextLabel")
-    infoLabel.Size = UDim2.new(1, 0, 0.3, 0)
-    infoLabel.Position = UDim2.new(0, 0, 0.7, 0)
-    infoLabel.BackgroundTransparency = 1
-    infoLabel.Text = "J - скрыть GUI"
-    infoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    infoLabel.TextScaled = true
-    infoLabel.Parent = frame
-    
-    return screenGui
+-- Функция моментальной телепортации
+local function instantTeleport(targetPosition)
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
 end
 
--- Создаем GUI при запуске
-createGUI()
-
--- Функция для применения изменений ко всем промптам
-local function updateAllPrompts()
-    for _, prompt in ipairs(game:GetService("Workspace"):GetDescendants()) do
-        if prompt:IsA("ProximityPrompt") then
-            if enabled then
-                -- Сохраняем оригинальное значение и устанавливаем 0
-                if not originalDurations[prompt] then
-                    originalDurations[prompt] = prompt.HoldDuration
-                end
-                prompt.HoldDuration = 0
-            else
-                -- Восстанавливаем оригинальное значение
-                if originalDurations[prompt] then
-                    prompt.HoldDuration = originalDurations[prompt]
-                end
-            end
-        end
-    end
-end
-
--- Обработчик новых ProximityPrompt
-local function onDescendantAdded(descendant)
-    if descendant:IsA("ProximityPrompt") then
-        if enabled then
-            -- Если режим включен, сразу применяем изменения к новому промпту
-            originalDurations[descendant] = descendant.HoldDuration
-            descendant.HoldDuration = 0
-        end
-    end
-end
-
--- Подписываемся на событие добавления новых объектов
-game:GetService("Workspace").DescendantAdded:Connect(onDescendantAdded)
-
--- Обработка существующих ProximityPrompt при запуске
-updateAllPrompts()
-
--- Функция переключения состояния
-local function toggleProximityPrompts()
-    enabled = not enabled
-    
-    -- Обновляем кнопку
-    if toggleBtn then
-        if enabled then
-            toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-            toggleBtn.Text = "ВКЛ"
-        else
-            toggleBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
-            toggleBtn.Text = "ВЫКЛ"
-        end
+-- Основной цикл телепортации
+while true do
+    for index, point in ipairs(teleportPoints) do
+        instantTeleport(point)
+        wait(2) -- Ожидание между точками
     end
     
-    -- Применяем изменения ко всем промптам
-    updateAllPrompts()
-end
-
--- Обработчик клика по кнопке
-if toggleBtn then
-    toggleBtn.MouseButton1Click:Connect(toggleProximityPrompts)
-end
-
--- Скрытие GUI по клавише J
-local uis = game:GetService("UserInputService")
-uis.InputBegan:Connect(function(input, processed)
-    if not processed and input.KeyCode == Enum.KeyCode.J then
-        if screenGui then
-            screenGui.Enabled = not screenGui.Enabled
-        end
-    end
-end)
-
--- Обработчик возрождения игрока
-local function onCharacterAdded(character)
-    -- При возрождении пересоздаем GUI, сохраняя текущее состояние
-    createGUI()
-    
-    -- Переподписываем обработчик клика
-    if toggleBtn then
-        toggleBtn.MouseButton1Click:Connect(toggleProximityPrompts)
-    end
-    
-    -- Обновляем все промпты после возрождения
-    updateAllPrompts()
-end
-
--- Подписываемся на событие появления персонажа
-player.CharacterAdded:Connect(onCharacterAdded)
-
--- Если персонаж уже существует, тоже подписываемся
-if player.Character then
-    onCharacterAdded(player.Character)
+    -- Автоматический перезаход на другой сервер
+    TeleportService:Teleport(game.PlaceId, player)
+    wait(2) -- Задержка перед повторной попыткой если телепортация не удалась
 end
