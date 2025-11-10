@@ -391,8 +391,6 @@ local function teleportToPlayer(targetPlayer)
         -- Возврат на исходную позицию
         humanoidRootPart.CFrame = lastPosition
         lastPosition = nil
-        
-        -- Выделение игрока НЕ сбрасывается после телепортации
     end
 end
 
