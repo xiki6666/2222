@@ -106,8 +106,15 @@ refreshCorner.Parent = refreshButton
 local function getPlayersByTeam(teamName)
 	local teamPlayers = {}
 	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= Player and player.Team and player.Team.Name == teamName then
-			table.insert(teamPlayers, player)
+		if player ~= Player then
+			-- Проверяем, есть ли у игрока команда и соответствует ли она выбранной
+			if player.Team then
+				if teamName == "Sheriffs" and player.Team.Name == "Sheriffs" then
+					table.insert(teamPlayers, player)
+				elseif teamName == "Criminals" and player.Team.Name == "Criminals" then
+					table.insert(teamPlayers, player)
+				end
+			end
 		end
 	end
 	return teamPlayers
