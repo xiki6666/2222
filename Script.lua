@@ -107,12 +107,10 @@ local function getPlayersByTeam(teamName)
     local teamPlayers = {}
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= Player then
-            if teamName == "Sheriffs" then
-                if player.Team and player.Team.Name == "Sheriffs" then
+            if player.Team then
+                if teamName == "Sheriffs" and player.Team.Name == "Sheriffs" then
                     table.insert(teamPlayers, player)
-                end
-            elseif teamName == "Criminals" then
-                if player.Team and player.Team.Name == "Criminals" then
+                elseif teamName == "Criminals" and player.Team.Name == "Criminals" then
                     table.insert(teamPlayers, player)
                 end
             end
@@ -403,7 +401,33 @@ local function onInput(input, gameProcessed)
     if gameProcessed then return end
     
     if input.KeyCode == Enum.KeyCode.Q and teleportingTo then
-        teleportToPlayer(teleportingTo)
+        -- Проверяем, что целевой игрок все еще в игре и в нужной команде
+        if teleportingTo and teleportingTo.Parent and teleportingTo.Character then
+            local players = getPlayersByTeam(currentTeam)
+            local playerInTeam = false
+            for _, player in ipairs(players) do
+                if player == teleportingTo then
+                    playerInTeam = true
+                    break
+                end
+            end
+            
+            if playerInTeam then
+                teleportToPlayer(teleportingTo)
+            else
+                -- Если игрок больше не в команде, сбрасываем выделение
+                clearAllHighlights()
+                selectedPlayerFrame = nil
+                selectedPlayer = nil
+                teleportingTo = nil
+            end
+        else
+            -- Если игрока больше нет в игре, сбрасываем выделение
+            clearAllHighlights()
+            selectedPlayerFrame = nil
+            selectedPlayer = nil
+            teleportingTo = nil
+        end
     elseif input.KeyCode == Enum.KeyCode.H then
         toggleGUI()
     end
