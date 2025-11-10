@@ -401,33 +401,7 @@ local function onInput(input, gameProcessed)
     if gameProcessed then return end
     
     if input.KeyCode == Enum.KeyCode.Q and teleportingTo then
-        -- Проверяем, что целевой игрок все еще в игре и в нужной команде
-        if teleportingTo and teleportingTo.Parent and teleportingTo.Character then
-            local players = getPlayersByTeam(currentTeam)
-            local playerInTeam = false
-            for _, player in ipairs(players) do
-                if player == teleportingTo then
-                    playerInTeam = true
-                    break
-                end
-            end
-            
-            if playerInTeam then
-                teleportToPlayer(teleportingTo)
-            else
-                -- Если игрок больше не в команде, сбрасываем выделение
-                clearAllHighlights()
-                selectedPlayerFrame = nil
-                selectedPlayer = nil
-                teleportingTo = nil
-            end
-        else
-            -- Если игрока больше нет в игре, сбрасываем выделение
-            clearAllHighlights()
-            selectedPlayerFrame = nil
-            selectedPlayer = nil
-            teleportingTo = nil
-        end
+        teleportToPlayer(teleportingTo)
     elseif input.KeyCode == Enum.KeyCode.H then
         toggleGUI()
     end
