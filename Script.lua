@@ -9,7 +9,6 @@ local HttpService = game:GetService("HttpService")
 -- Основные переменные
 local teleportingTo = nil
 local lastPosition = nil
-local currentTeam = "Sheriffs"
 local connections = {}
 local selectedPlayerFrame = nil
 local selectedPlayer = nil
@@ -32,39 +31,24 @@ local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 8)
 corner.Parent = mainFrame
 
--- Верхняя панель с переключателями
-local topBar = Instance.new("Frame")
-topBar.Size = UDim2.new(1, 0, 0, 40)
-topBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-topBar.Parent = mainFrame
+-- Заголовок
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 40)
+titleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+titleBar.Parent = mainFrame
 
-local topBarCorner = Instance.new("UICorner")
-topBarCorner.CornerRadius = UDim.new(0, 8)
-topBarCorner.Parent = topBar
+local titleBarCorner = Instance.new("UICorner")
+titleBarCorner.CornerRadius = UDim.new(0, 8)
+titleBarCorner.Parent = titleBar
 
-local sheriffsButton = Instance.new("TextButton")
-sheriffsButton.Size = UDim2.new(0.5, -5, 1, 0)
-sheriffsButton.Position = UDim2.new(0, 5, 0, 0)
-sheriffsButton.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
-sheriffsButton.Text = "Sheriffs"
-sheriffsButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-sheriffsButton.Parent = topBar
-
-local sheriffsCorner = Instance.new("UICorner")
-sheriffsCorner.CornerRadius = UDim.new(0, 6)
-sheriffsCorner.Parent = sheriffsButton
-
-local criminalsButton = Instance.new("TextButton")
-criminalsButton.Size = UDim2.new(0.5, -5, 1, 0)
-criminalsButton.Position = UDim2.new(0.5, 5, 0, 0)
-criminalsButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-criminalsButton.Text = "Criminals"
-criminalsButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-criminalsButton.Parent = topBar
-
-local criminalsCorner = Instance.new("UICorner")
-criminalsCorner.CornerRadius = UDim.new(0, 6)
-criminalsCorner.Parent = criminalsButton
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, 0, 1, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Sheriffs"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 16
+titleLabel.Parent = titleBar
 
 -- Список игроков
 local playerList = Instance.new("ScrollingFrame")
@@ -103,20 +87,14 @@ refreshCorner.CornerRadius = UDim.new(0, 6)
 refreshCorner.Parent = refreshButton
 
 -- Функции
-local function getPlayersByTeam(teamName)
-    local teamPlayers = {}
+local function getSheriffsPlayers()
+    local sheriffsPlayers = {}
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= Player then
-            if player.Team then
-                if teamName == "Sheriffs" and player.Team.Name == "Sheriffs" then
-                    table.insert(teamPlayers, player)
-                elseif teamName == "Criminals" and player.Team.Name == "Criminals" then
-                    table.insert(teamPlayers, player)
-                end
-            end
+        if player ~= Player and player.Team and player.Team.Name == "Sheriffs" then
+            table.insert(sheriffsPlayers, player)
         end
     end
-    return teamPlayers
+    return sheriffsPlayers
 end
 
 local function getLeaderstatsString(player)
@@ -301,9 +279,9 @@ local function updatePlayerList()
     
     -- Сохраняем выделение только если игрок все еще в команде
     if selectedPlayer then
-        local players = getPlayersByTeam(currentTeam)
+        local sheriffsPlayers = getSheriffsPlayers()
         local playerStillInTeam = false
-        for _, player in ipairs(players) do
+        for _, player in ipairs(sheriffsPlayers) do
             if player == selectedPlayer then
                 playerStillInTeam = true
                 break
@@ -318,8 +296,8 @@ local function updatePlayerList()
     end
     
     -- Добавление игроков
-    local players = getPlayersByTeam(currentTeam)
-    for _, player in ipairs(players) do
+    local sheriffsPlayers = getSheriffsPlayers()
+    for _, player in ipairs(sheriffsPlayers) do
         local entry = createPlayerEntry(player)
         entry.Parent = playerList
         
@@ -343,21 +321,7 @@ local function toggleGUI()
     mainFrame.Visible = guiVisible
 end
 
--- Обработчики событий
-sheriffsButton.MouseButton1Click:Connect(function()
-    currentTeam = "Sheriffs"
-    sheriffsButton.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
-    criminalsButton.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-    updatePlayerList()
-end)
-
-criminalsButton.MouseButton1Click:Connect(function()
-    currentTeam = "Criminals"
-    criminalsButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-    sheriffsButton.BackgroundColor3 = Color3.fromRGB(0, 50, 100)
-    updatePlayerList()
-end)
-
+-- Обработчик обновления списка
 refreshButton.MouseButton1Click:Connect(updatePlayerList)
 
 -- Функция телепортации за спину (ближе)
