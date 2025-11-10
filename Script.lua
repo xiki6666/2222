@@ -107,11 +107,12 @@ local function getPlayersByTeam(teamName)
     local teamPlayers = {}
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= Player then
-            -- Проверяем, есть ли у игрока команда и соответствует ли она выбранной
-            if player.Team then
-                if teamName == "Sheriffs" and player.Team.Name == "Sheriffs" then
+            if teamName == "Sheriffs" then
+                if player.Team and player.Team.Name == "Sheriffs" then
                     table.insert(teamPlayers, player)
-                elseif teamName == "Criminals" and player.Team.Name == "Criminals" then
+                end
+            elseif teamName == "Criminals" then
+                if player.Team and player.Team.Name == "Criminals" then
                     table.insert(teamPlayers, player)
                 end
             end
