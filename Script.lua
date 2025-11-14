@@ -9,7 +9,13 @@ while true do
     if character then
         local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
         if humanoidRootPart then
-            humanoidRootPart.Position = Vector3.new(50.79, 3.00, 564.22)
+            -- Отключаем физику на момент телепортации
+            humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            humanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+            
+            -- Телепортируем всю модель целиком
+            local offset = humanoidRootPart.Position - character:GetPivot().Position
+            character:PivotTo(CFrame.new(Vector3.new(50.79, 3.00, 564.22) + offset))
         end
     end
 end
