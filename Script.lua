@@ -1,5 +1,6 @@
 -- LocalScript в StarterPlayerScripts
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 
 while true do
@@ -9,13 +10,21 @@ while true do
     if character then
         local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
         if humanoidRootPart then
-            -- Отключаем физику на момент телепортации
-            humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-            humanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+            -- Создаем твин для плавного перемещения
+            local tweenInfo = TweenInfo.new(
+                0.5, -- длительность
+                Enum.EasingStyle.Linear,
+                Enum.EasingDirection.Out,
+                0, -- повторения
+                false, -- отмена при отключении
+                0 -- задержка
+            )
             
-            -- Телепортируем всю модель целиком
-            local offset = humanoidRootPart.Position - character:GetPivot().Position
-            character:PivotTo(CFrame.new(Vector3.new(50.79, 3.00, 564.22) + offset))
+            local tween = TweenService:Create(humanoidRootPart, tweenInfo, {
+                Position = Vector3.new(50.79, 3.00, 564.22)
+            })
+            
+            tween:Play()
         end
     end
 end
