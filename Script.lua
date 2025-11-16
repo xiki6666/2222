@@ -2,8 +2,9 @@
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
--- Название команды шерифов (можете изменить если нужно)
+-- Названия команд, которые не должны телепортироваться
 local SHERIFF_TEAM_NAME = "Sheriffs"
+local LOBBY_TEAM_NAME = "Lobby"
 
 local function findClosestSheriff()
     local character = player.Character
@@ -32,9 +33,9 @@ local function findClosestSheriff()
     return closestSheriff
 end
 
-local function teleportInsideSheriff()
-    -- Проверяем, что игрок не в команде шерифов
-    if player.Team and player.Team.Name == SHERIFF_TEAM_NAME then
+local function teleportInFrontOfSheriff()
+    -- Проверяем, что игрок не в команде шерифов и не в лобби
+    if player.Team and (player.Team.Name == SHERIFF_TEAM_NAME or player.Team.Name == LOBBY_TEAM_NAME) then
         return
     end
     
@@ -53,12 +54,15 @@ local function teleportInsideSheriff()
     local sheriffRoot = sheriff:FindFirstChild("HumanoidRootPart")
     if not sheriffRoot then return end
     
-    -- Телепортируем игрока прямо в позицию шерифа
+    -- Вычисляем позицию перед шерифом (3 единицы вперед по направлению взгляда)
+    local sheriffCFrame = sheriffRoot.CFrame
+    local teleportPosition = sheriffCFrame.Position + sheriffCFrame.LookVector * 3
+    
+    -- Телепортируем игрока
     humanoid.PlatformStand = true
     wait(0.05)
     
-    -- Устанавливаем ту же позицию и ориентацию, что и у шерифа
-    humanoidRootPart.CFrame = sheriffRoot.CFrame
+    humanoidRootPart.CFrame = CFrame.new(teleportPosition) * CFrame.Angles(0, sheriffCFrame.Y, 0)
     
     wait(0.05)
     humanoid.PlatformStand = false
@@ -67,5 +71,5 @@ end
 -- Основной цикл телепортации
 while true do
     wait(5)
-    teleportInsideSheriff()
+    teleportInFrontOfSheriff()
 end
