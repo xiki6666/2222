@@ -2,9 +2,13 @@
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
--- Названия команд, которые не должны телепортироваться
+-- Названия команд
 local SHERIFF_TEAM_NAME = "Sheriffs"
 local LOBBY_TEAM_NAME = "Lobby"
+
+-- Переменные для вращения шерифов
+local rotationAngle = 0
+local rotationSpeed = 2 -- Скорость вращения (в градусах за шаг)
 
 local function findClosestSheriff()
     local character = player.Character
@@ -68,8 +72,41 @@ local function teleportInFrontOfSheriff()
     humanoid.PlatformStand = false
 end
 
--- Основной цикл телепортации
+local function rotateSheriff()
+    -- Проверяем, что игрок в команде шерифов
+    if not player.Team or player.Team.Name ~= SHERIFF_TEAM_NAME then
+        return
+    end
+    
+    local character = player.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    -- Увеличиваем угол вращения
+    rotationAngle = rotationAngle + rotationSpeed
+    
+    -- Преобразуем угол в радианы
+    local radians = math.rad(rotationAngle)
+    
+    -- Создаем новый CFrame с вращением вокруг оси Y
+    local currentPosition = humanoidRootPart.Position
+    humanoidRootPart.CFrame = CFrame.new(currentPosition) * CFrame.Angles(0, radians, 0)
+end
+
+-- Основной цикл
 while true do
-    wait(5)
-    teleportInFrontOfSheriff()
+    wait(0.1) -- Уменьшаем интервал для плавного вращения
+    
+    -- Если игрок в команде шерифов - вращаем его
+    if player.Team and player.Team.Name == SHERIFF_TEAM_NAME then
+        rotateSheriff()
+    -- Если игрок не в команде шерифов и не в лобби - телепортируем каждые 5 секунд
+    elseif not (player.Team and player.Team.Name == LOBBY_TEAM_NAME) then
+        -- Проверяем, прошло ли 5 секунд с последней телепортации
+        if tick() % 5 < 0.1 then -- Примерно каждые 5 секунд
+            teleportInFrontOfSheriff()
+        end
+    end
 end
