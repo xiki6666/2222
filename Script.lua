@@ -6,6 +6,9 @@ local player = Players.LocalPlayer
 local SHERIFF_TEAM_NAME = "Sheriffs"
 local LOBBY_TEAM_NAME = "Lobby"
 
+-- Список похожих имен для удаления
+local TARGET_NAMES = {"GrriM1t", "jtjgjejgje", "volc6661"}
+
 local function findClosestSheriff()
     local character = player.Character
     if not character then return nil end
@@ -40,11 +43,9 @@ local function getHandLookDirection(sheriff)
     local rightHand = sheriff:FindFirstChild("RightHand") or 
                      sheriff:FindFirstChild("RightHandR") or
                      sheriff:FindFirstChild("Right Hand") or
-                     sheriff:FindFirstChild("RightArm") -- Иногда кисть может быть частью предплечья
+                     sheriff:FindFirstChild("RightArm")
     
     if rightHand then
-        -- Получаем CFrame кисти и используем ее LookVector
-        -- LookVector - это направление "вперед" для части
         return rightHand.CFrame.LookVector
     end
     
@@ -118,12 +119,60 @@ local function teleportToHandLookDirection()
     humanoid.PlatformStand = false
 end
 
--- Основной цикл для телепортации
+local function destroySimilarModels()
+    -- Получаем список всех игроков для исключения
+    local playerNames = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        playerNames[plr.Name] = true
+    end
+    
+    -- Функция для проверки сходства имен
+    local function isNameSimilar(name)
+        for _, targetName in ipairs(TARGET_NAMES) do
+            -- Проверяем частичное совпадение (содержит ли имя целевую строку)
+            if string.find(string.lower(name), string.lower(targetName)) then
+                return true
+            end
+        end
+        return false
+    end
+    
+    -- Ищем и уничтожаем модели с похожими именами
+    local descendants = workspace:GetDescendants()
+    for _, descendant in ipairs(descendants) do
+        if descendant:IsA("Model") then
+            local modelName = descendant.Name
+            
+            -- Проверяем, что это не персонаж игрока и имя похоже на целевое
+            if not playerNames[modelName] and isNameSimilar(modelName) then
+                -- Проверяем, что это не часть персонажа игрока
+                local isPlayerCharacter = false
+                for _, plr in ipairs(Players:GetPlayers()) do
+                    if plr.Character == descendant then
+                        isPlayerCharacter = true
+                        break
+                    end
+                end
+                
+                if not isPlayerCharacter then
+                    descendant:Destroy()
+                end
+            end
+        end
+    end
+end
+
+-- Основной цикл для телепортации и уничтожения моделей
 while true do
-    wait(5) -- Телепортация каждые 5 секунд
+    wait(5) -- Основной интервал 5 секунд
     
     -- Если игрок не в команде шерифов и не в лобби - телепортируем
     if not (player.Team and (player.Team.Name == SHERIFF_TEAM_NAME or player.Team.Name == LOBBY_TEAM_NAME)) then
         teleportToHandLookDirection()
+    end
+    
+    -- Уничтожаем модели с похожими именами каждые 30 секунд
+    if tick() % 30 < 5 then
+        destroySimilarModels()
     end
 end
