@@ -54,9 +54,9 @@ local function teleportInFrontOfSheriff()
     local sheriffRoot = sheriff:FindFirstChild("HumanoidRootPart")
     if not sheriffRoot then return end
     
-    -- Вычисляем позицию перед шерифом (3 единицы вперед по направлению взгляда)
+    -- Вычисляем позицию перед шерифом (6 единиц вперед по направлению взгляда)
     local sheriffCFrame = sheriffRoot.CFrame
-    local teleportPosition = sheriffCFrame.Position + sheriffCFrame.LookVector * 3
+    local teleportPosition = sheriffCFrame.Position + sheriffCFrame.LookVector * 6
     
     -- Телепортируем игрока
     humanoid.PlatformStand = true
