@@ -1,5 +1,6 @@
 -- LocalScript в StarterPlayerScripts
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
 -- Названия команд
@@ -8,7 +9,9 @@ local LOBBY_TEAM_NAME = "Lobby"
 
 -- Переменные для вращения шерифов
 local rotationAngle = 0
-local rotationSpeed = 2 -- Скорость вращения (в градусах за шаг)
+local rotationSpeed = 2 -- Скорость вращения (в градусах за кадр)
+local isRotating = false
+local bodyGyro = nil
 
 local function findClosestSheriff()
     local character = player.Character
@@ -72,8 +75,7 @@ local function teleportInFrontOfSheriff()
     humanoid.PlatformStand = false
 end
 
-local function rotateSheriff()
-    -- Проверяем, что игрок в команде шерифов
+local function startRotation()
     if not player.Team or player.Team.Name ~= SHERIFF_TEAM_NAME then
         return
     end
@@ -84,28 +86,83 @@ local function rotateSheriff()
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
     if not humanoidRootPart then return end
     
-    -- Увеличиваем угол вращения
-    rotationAngle = rotationAngle + rotationSpeed
+    -- Создаем BodyGyro для плавного вращения
+    if not bodyGyro then
+        bodyGyro = Instance.new("BodyGyro")
+        bodyGyro.P = 1000
+        bodyGyro.D = 100
+        bodyGyro.MaxTorque = Vector3.new(0, 4000, 0)
+        bodyGyro.Parent = humanoidRootPart
+    end
     
-    -- Преобразуем угол в радианы
-    local radians = math.rad(rotationAngle)
+    isRotating = true
     
-    -- Создаем новый CFrame с вращением вокруг оси Y
-    local currentPosition = humanoidRootPart.Position
-    humanoidRootPart.CFrame = CFrame.new(currentPosition) * CFrame.Angles(0, radians, 0)
+    -- Используем RenderStepped для плавного вращения
+    local connection
+    connection = RunService.RenderStepped:Connect(function(deltaTime)
+        if not isRotating or not character or not character.Parent then
+            connection:Disconnect()
+            return
+        end
+        
+        -- Обновляем угол вращения
+        rotationAngle = rotationAngle + math.rad(rotationSpeed) * deltaTime * 60
+        
+        -- Устанавливаем вращение через BodyGyro
+        if bodyGyro and bodyGyro.Parent then
+            bodyGyro.CFrame = CFrame.Angles(0, rotationAngle, 0)
+        else
+            connection:Disconnect()
+        end
+    end)
 end
 
--- Основной цикл
-while true do
-    wait(0.1) -- Уменьшаем интервал для плавного вращения
-    
-    -- Если игрок в команде шерифов - вращаем его
+local function stopRotation()
+    isRotating = false
+    if bodyGyro then
+        bodyGyro:Destroy()
+        bodyGyro = nil
+    end
+end
+
+-- Обработчик изменения команды
+local function onTeamChanged()
     if player.Team and player.Team.Name == SHERIFF_TEAM_NAME then
-        rotateSheriff()
+        -- Ждем появления персонажа
+        if player.Character then
+            startRotation()
+        else
+            player.CharacterAdded:Wait()
+            startRotation()
+        end
+    else
+        stopRotation()
+    end
+end
+
+-- Обработчик изменения персонажа
+local function onCharacterAdded(character)
+    if player.Team and player.Team.Name == SHERIFF_TEAM_NAME then
+        wait(1) -- Ждем полной загрузки персонажа
+        startRotation()
+    end
+end
+
+-- Инициализация
+player.TeamChanged:Connect(onTeamChanged)
+player.CharacterAdded:Connect(onCharacterAdded)
+
+-- Запускаем начальную проверку
+onTeamChanged()
+
+-- Основной цикл для телепортации не-шерифов
+while true do
+    wait(0.1)
+    
     -- Если игрок не в команде шерифов и не в лобби - телепортируем каждые 5 секунд
-    elseif not (player.Team and player.Team.Name == LOBBY_TEAM_NAME) then
+    if not (player.Team and (player.Team.Name == SHERIFF_TEAM_NAME or player.Team.Name == LOBBY_TEAM_NAME)) then
         -- Проверяем, прошло ли 5 секунд с последней телепортации
-        if tick() % 5 < 0.1 then -- Примерно каждые 5 секунд
+        if tick() % 5 < 0.1 then
             teleportInFrontOfSheriff()
         end
     end
