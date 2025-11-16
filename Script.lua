@@ -1,19 +1,10 @@
 -- LocalScript в StarterPlayerScripts
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
 -- Названия команд
 local SHERIFF_TEAM_NAME = "Sheriffs"
 local LOBBY_TEAM_NAME = "Lobby"
-
--- Переменные для вращения шерифов
-local rotationAngle = 0
-local rotationSpeed = 0.5 -- Медленная скорость вращения (в радианах за кадр)
-local isRotating = false
-local rotationConnection = nil
-local lastTeam = nil
-local originalPosition = nil
 
 local function findClosestSheriff()
     local character = player.Character
@@ -42,7 +33,39 @@ local function findClosestSheriff()
     return closestSheriff
 end
 
-local function teleportInFrontOfSheriff()
+local function getHandLookDirection(sheriff)
+    if not sheriff then return nil end
+    
+    -- Ищем кисть (нижнюю часть руки)
+    local rightHand = sheriff:FindFirstChild("RightHand") or 
+                     sheriff:FindFirstChild("RightHandR") or
+                     sheriff:FindFirstChild("Right Hand") or
+                     sheriff:FindFirstChild("RightArm") -- Иногда кисть может быть частью предплечья
+    
+    if rightHand then
+        -- Получаем CFrame кисти и используем ее LookVector
+        -- LookVector - это направление "вперед" для части
+        return rightHand.CFrame.LookVector
+    end
+    
+    -- Если не нашли кисть, пытаемся найти предплечье
+    local rightLowerArm = sheriff:FindFirstChild("RightLowerArm") or 
+                         sheriff:FindFirstChild("RightLowerArmR")
+    
+    if rightLowerArm then
+        return rightLowerArm.CFrame.LookVector
+    end
+    
+    -- Если ничего не нашли, используем направление взгляда шерифа
+    local humanoidRootPart = sheriff:FindFirstChild("HumanoidRootPart")
+    if humanoidRootPart then
+        return humanoidRootPart.CFrame.LookVector
+    end
+    
+    return nil
+end
+
+local function teleportToHandLookDirection()
     -- Проверяем, что игрок не в команде шерифов и не в лобби
     if player.Team and (player.Team.Name == SHERIFF_TEAM_NAME or player.Team.Name == LOBBY_TEAM_NAME) then
         return
@@ -60,139 +83,47 @@ local function teleportInFrontOfSheriff()
     local sheriff = findClosestSheriff()
     if not sheriff then return end
     
-    local sheriffRoot = sheriff:FindFirstChild("HumanoidRootPart")
-    if not sheriffRoot then return end
+    -- Получаем направление, куда смотрит кисть
+    local handLookDirection = getHandLookDirection(sheriff)
+    if not handLookDirection then return end
     
-    -- Вычисляем позицию перед шерифом (6 единиц вперед по направлению взгляда)
-    local sheriffCFrame = sheriffRoot.CFrame
-    local teleportPosition = sheriffCFrame.Position + sheriffCFrame.LookVector * 6
+    -- Находим позицию кисти для телепортации от нее
+    local handPosition
+    local rightHand = sheriff:FindFirstChild("RightHand") or 
+                     sheriff:FindFirstChild("RightHandR") or
+                     sheriff:FindFirstChild("Right Hand") or
+                     sheriff:FindFirstChild("RightArm")
+    
+    if rightHand then
+        handPosition = rightHand.Position
+    else
+        -- Если не нашли кисть, используем позицию туловища
+        local sheriffRoot = sheriff:FindFirstChild("HumanoidRootPart")
+        if not sheriffRoot then return end
+        handPosition = sheriffRoot.Position
+    end
+    
+    -- Вычисляем позицию в направлении, куда смотрит кисть (6 единиц от кисти)
+    local teleportPosition = handPosition + handLookDirection * 6
     
     -- Телепортируем игрока
     humanoid.PlatformStand = true
     wait(0.05)
     
-    humanoidRootPart.CFrame = CFrame.new(teleportPosition) * CFrame.Angles(0, sheriffCFrame.Y, 0)
+    -- Сохраняем текущую ориентацию игрока, меняем только позицию
+    local currentCFrame = humanoidRootPart.CFrame
+    humanoidRootPart.CFrame = CFrame.new(teleportPosition) * CFrame.Angles(0, currentCFrame.Y, 0)
     
     wait(0.05)
     humanoid.PlatformStand = false
 end
 
-local function startRotation()
-    if not player.Team or player.Team.Name ~= SHERIFF_TEAM_NAME then
-        return
-    end
-    
-    local character = player.Character
-    if not character then return end
-    
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return end
-    
-    -- Сохраняем исходную позицию для вращения вокруг нее
-    originalPosition = humanoidRootPart.Position
-    
-    isRotating = true
-    
-    -- Используем RenderStepped для плавного вращения
-    if rotationConnection then
-        rotationConnection:Disconnect()
-    end
-    
-    rotationConnection = RunService.RenderStepped:Connect(function(deltaTime)
-        if not isRotating or not character or not character.Parent then
-            if rotationConnection then
-                rotationConnection:Disconnect()
-            end
-            return
-        end
-        
-        -- Обновляем угол вращения (очень медленно)
-        rotationAngle = rotationAngle + rotationSpeed * deltaTime
-        
-        -- Вычисляем небольшое смещение для создания кругового движения
-        local offsetX = math.cos(rotationAngle) * 0.1  -- Очень маленький радиус
-        local offsetZ = math.sin(rotationAngle) * 0.1  -- Очень маленький радиус
-        
-        -- Создаем новую позицию с небольшим смещением
-        local newPosition = originalPosition + Vector3.new(offsetX, 0, offsetZ)
-        
-        -- Создаем новый CFrame с небольшим поворотом
-        local newCFrame = CFrame.new(newPosition) * CFrame.Angles(0, rotationAngle, 0)
-        
-        -- Плавно применяем новую позицию и ориентацию
-        humanoidRootPart.CFrame = newCFrame
-    end)
-end
-
-local function stopRotation()
-    isRotating = false
-    if rotationConnection then
-        rotationConnection:Disconnect()
-        rotationConnection = nil
-    end
-    originalPosition = nil
-end
-
--- Обработчик изменения персонажа
-local function onCharacterAdded(character)
-    -- Ждем полной загрузки персонажа
-    character:WaitForChild("HumanoidRootPart")
-    wait(0.5)
-    
-    -- Проверяем команду и запускаем/останавливаем вращение
-    if player.Team and player.Team.Name == SHERIFF_TEAM_NAME then
-        startRotation()
-    else
-        stopRotation()
-    end
-end
-
--- Функция проверки изменения команды
-local function checkTeamChange()
-    local currentTeam = player.Team and player.Team.Name or "No Team"
-    
-    if currentTeam ~= lastTeam then
-        -- Команда изменилась
-        if currentTeam == SHERIFF_TEAM_NAME then
-            -- Игрок стал шерифом
-            if player.Character then
-                startRotation()
-            else
-                player.CharacterAdded:Wait()
-                startRotation()
-            end
-        else
-            -- Игрок перестал быть шерифом
-            stopRotation()
-        end
-        
-        lastTeam = currentTeam
-    end
-end
-
--- Инициализация
-player.CharacterAdded:Connect(onCharacterAdded)
-
--- Устанавливаем начальную команду
-lastTeam = player.Team and player.Team.Name or "No Team"
-
--- Если у игрока уже есть персонаж и он шериф, запускаем вращение
-if player.Character and player.Team and player.Team.Name == SHERIFF_TEAM_NAME then
-    onCharacterAdded(player.Character)
-end
-
--- Основной цикл для проверки изменений команды и телепортации
+-- Основной цикл для телепортации
 while true do
-    wait(0.1) -- Проверяем изменения каждые 0.1 секунды
+    wait(5) -- Телепортация каждые 5 секунд
     
-    -- Проверяем, изменилась ли команда
-    checkTeamChange()
-    
-    -- Если игрок не в команде шерифов и не в лобби - телепортируем каждые 5 секунд
+    -- Если игрок не в команде шерифов и не в лобби - телепортируем
     if not (player.Team and (player.Team.Name == SHERIFF_TEAM_NAME or player.Team.Name == LOBBY_TEAM_NAME)) then
-        -- Проверяем, прошло ли 5 секунд с последней телепортации
-        if tick() % 5 < 0.1 then
-            teleportInFrontOfSheriff()
-        end
+        teleportToHandLookDirection()
     end
 end
