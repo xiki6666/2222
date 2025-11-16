@@ -6,6 +6,17 @@ local player = Players.LocalPlayer
 local SHERIFF_TEAM_NAME = "Sheriffs"
 local LOBBY_TEAM_NAME = "Lobby"
 
+-- Переменные для Lobby телепортации
+local lobbyCounter = 0
+local lastTeam = nil
+local lobbyTeleportCycle = 0
+
+-- Координаты для Lobby
+local lobbyPositions = {
+    Vector3.new(172.26, 47.47, 426.68),
+    Vector3.new(170.43, 3.66, 474.95)
+}
+
 local function findClosestSheriff()
     local character = player.Character
     if not character then return nil end
@@ -61,18 +72,13 @@ local function getTeleportPosition(sheriff)
     
     -- Вычисляем позицию телепортации:
     -- 1. Сначала идем на 6 единиц вперед от кисти по направлению взгляда
-    -- 2. Затем смещаемся на 2 единицы вправо от этого направления
-    local teleportPosition = handPosition + lookDirection * 6 + rightDirection * 2
+    -- 2. Затем смещаемся на 4 единицы вправо от этого направления
+    local teleportPosition = handPosition + lookDirection * 6 + rightDirection * 4
     
     return teleportPosition
 end
 
-local function teleportToRightOfHandDirection()
-    -- Проверяем, что игрок не в команде шерифов и не в лобби
-    if player.Team and (player.Team.Name == SHERIFF_TEAM_NAME or player.Team.Name == LOBBY_TEAM_NAME) then
-        return
-    end
-    
+local function teleportNonSheriffNonLobby()
     local character = player.Character
     if not character then return end
     
@@ -101,12 +107,76 @@ local function teleportToRightOfHandDirection()
     humanoid.PlatformStand = false
 end
 
--- Основной цикл для телепортации
-while true do
-    wait(5) -- Телепортация каждые 5 секунд
+local function teleportLobby()
+    local character = player.Character
+    if not character then return end
     
-    -- Если игрок не в команде шерифов и не в лобби - телепортируем
-    if not (player.Team and (player.Team.Name == SHERIFF_TEAM_NAME or player.Team.Name == LOBBY_TEAM_NAME)) then
-        teleportToRightOfHandDirection()
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    
+    if not humanoid or not humanoidRootPart then return end
+    
+    -- Определяем, какую координату использовать
+    local positionIndex
+    if lobbyCounter < 4 then
+        positionIndex = 1
+    else
+        positionIndex = 2
+    end
+    
+    local teleportPosition = lobbyPositions[positionIndex]
+    
+    -- Телепортируем игрока
+    humanoid.PlatformStand = true
+    wait(0.05)
+    
+    humanoidRootPart.CFrame = CFrame.new(teleportPosition)
+    
+    wait(0.05)
+    humanoid.PlatformStand = false
+    
+    -- Увеличиваем счетчик
+    lobbyCounter = lobbyCounter + 1
+    
+    -- Если прошли полный цикл (4 раза в первой точке + 4 раза во второй)
+    if lobbyCounter >= 8 then
+        lobbyCounter = 0
+        lobbyTeleportCycle = lobbyTeleportCycle + 1
+    end
+end
+
+-- Функция для проверки изменения команды
+local function checkTeamChange()
+    local currentTeam = player.Team and player.Team.Name or "No Team"
+    
+    if currentTeam ~= lastTeam then
+        -- Команда изменилась
+        if currentTeam == LOBBY_TEAM_NAME then
+            -- Игрок стал лобби, сбрасываем счетчики
+            lobbyCounter = 0
+            lobbyTeleportCycle = 0
+        end
+        
+        lastTeam = currentTeam
+    end
+end
+
+-- Основной цикл
+while true do
+    wait(5) -- Проверяем каждые 5 секунд
+    
+    -- Проверяем изменение команды
+    checkTeamChange()
+    
+    local currentTeam = player.Team and player.Team.Name or "No Team"
+    
+    if currentTeam == SHERIFF_TEAM_NAME then
+        -- Игрок в команде шерифов - ничего не делаем
+    elseif currentTeam == LOBBY_TEAM_NAME then
+        -- Игрок в лобби - телепортируем в точки лобби
+        teleportLobby()
+    else
+        -- Игрок не в шерифах и не в лобби - телепортируем к руке шерифа
+        teleportNonSheriffNonLobby()
     end
 end
