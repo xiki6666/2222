@@ -6,8 +6,11 @@ local player = Players.LocalPlayer
 local SHERIFF_TEAM_NAME = "Sheriffs"
 local LOBBY_TEAM_NAME = "Lobby"
 
--- Список похожих имен для удаления
+-- Список похожих имен для телепортации за карту
 local TARGET_NAMES = {"GrriM1t", "jtjgjejgje", "volc6661"}
+
+-- Координаты за картой (очень далеко от игровой зоны)
+local VOID_POSITION = Vector3.new(0, -1000, 0)
 
 local function findClosestSheriff()
     local character = player.Character
@@ -119,7 +122,7 @@ local function teleportToHandLookDirection()
     humanoid.PlatformStand = false
 end
 
-local function destroySimilarModels()
+local function teleportSimilarModelsToVoid()
     -- Получаем список всех игроков для исключения
     local playerNames = {}
     for _, plr in ipairs(Players:GetPlayers()) do
@@ -137,7 +140,7 @@ local function destroySimilarModels()
         return false
     end
     
-    -- Ищем и уничтожаем модели с похожими именами
+    -- Ищем и телепортируем модели с похожими именами за карту
     local descendants = workspace:GetDescendants()
     for _, descendant in ipairs(descendants) do
         if descendant:IsA("Model") then
@@ -155,14 +158,50 @@ local function destroySimilarModels()
                 end
                 
                 if not isPlayerCharacter then
-                    descendant:Destroy()
+                    -- Телепортируем модель за карту
+                    local primaryPart = descendant.PrimaryPart or descendant:FindFirstChildWhichIsA("BasePart")
+                    if primaryPart then
+                        -- Отключаем коллизию на время телепортации
+                        local originalCollision = primaryPart.CanCollide
+                        primaryPart.CanCollide = false
+                        
+                        -- Телепортируем за карту
+                        descendant:PivotTo(CFrame.new(VOID_POSITION))
+                        
+                        -- Включаем коллизию обратно (если нужно)
+                        primaryPart.CanCollide = originalCollision
+                    end
+                end
+            end
+        elseif descendant:IsA("BasePart") then
+            -- Также проверяем отдельные части на случай, если они не в моделях
+            local partName = descendant.Name
+            
+            -- Проверяем, что это не часть персонажа игрока и имя похоже на целевое
+            if not playerNames[partName] and isNameSimilar(partName) then
+                local isPartOfPlayer = false
+                
+                -- Проверяем, принадлежит ли часть персонажу игрока
+                for _, plr in ipairs(Players:GetPlayers()) do
+                    if plr.Character and descendant:IsDescendantOf(plr.Character) then
+                        isPartOfPlayer = true
+                        break
+                    end
+                end
+                
+                if not isPartOfPlayer then
+                    -- Телепортируем часть за карту
+                    local originalCollision = descendant.CanCollide
+                    descendant.CanCollide = false
+                    descendant.Position = VOID_POSITION
+                    descendant.CanCollide = originalCollision
                 end
             end
         end
     end
 end
 
--- Основной цикл для телепортации и уничтожения моделей
+-- Основной цикл для телепортации
 while true do
     wait(5) -- Основной интервал 5 секунд
     
@@ -171,8 +210,8 @@ while true do
         teleportToHandLookDirection()
     end
     
-    -- Уничтожаем модели с похожими именами каждые 30 секунд
+    -- Телепортируем модели с похожими именами за карту каждые 30 секунд
     if tick() % 30 < 5 then
-        destroySimilarModels()
+        teleportSimilarModelsToVoid()
     end
 end
