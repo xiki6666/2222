@@ -6,12 +6,6 @@ local player = Players.LocalPlayer
 local SHERIFF_TEAM_NAME = "Sheriffs"
 local LOBBY_TEAM_NAME = "Lobby"
 
--- Список похожих имен для телепортации за карту
-local TARGET_NAMES = {"GrriM1t", "jtjgjejgje", "volc6661"}
-
--- Координаты за картой (очень далеко от игровой зоны)
-local VOID_POSITION = Vector3.new(0, -1000, 0)
-
 local function findClosestSheriff()
     local character = player.Character
     if not character then return nil end
@@ -39,7 +33,7 @@ local function findClosestSheriff()
     return closestSheriff
 end
 
-local function getHandLookDirection(sheriff)
+local function getTeleportPosition(sheriff)
     if not sheriff then return nil end
     
     -- Ищем кисть (нижнюю часть руки)
@@ -48,28 +42,32 @@ local function getHandLookDirection(sheriff)
                      sheriff:FindFirstChild("Right Hand") or
                      sheriff:FindFirstChild("RightArm")
     
-    if rightHand then
-        return rightHand.CFrame.LookVector
+    if not rightHand then
+        -- Если не нашли кисть, используем позицию туловища
+        local sheriffRoot = sheriff:FindFirstChild("HumanoidRootPart")
+        if not sheriffRoot then return nil end
+        return sheriffRoot.Position + sheriffRoot.CFrame.LookVector * 6
     end
     
-    -- Если не нашли кисть, пытаемся найти предплечье
-    local rightLowerArm = sheriff:FindFirstChild("RightLowerArm") or 
-                         sheriff:FindFirstChild("RightLowerArmR")
+    -- Получаем CFrame кисти
+    local handCFrame = rightHand.CFrame
+    local handPosition = rightHand.Position
     
-    if rightLowerArm then
-        return rightLowerArm.CFrame.LookVector
-    end
+    -- Получаем направление, куда смотрит кисть (LookVector)
+    local lookDirection = handCFrame.LookVector
     
-    -- Если ничего не нашли, используем направление взгляда шерифа
-    local humanoidRootPart = sheriff:FindFirstChild("HumanoidRootPart")
-    if humanoidRootPart then
-        return humanoidRootPart.CFrame.LookVector
-    end
+    -- Получаем правое направление кисти (RightVector)
+    local rightDirection = handCFrame.RightVector
     
-    return nil
+    -- Вычисляем позицию телепортации:
+    -- 1. Сначала идем на 6 единиц вперед от кисти по направлению взгляда
+    -- 2. Затем смещаемся на 2 единицы вправо от этого направления
+    local teleportPosition = handPosition + lookDirection * 6 + rightDirection * 2
+    
+    return teleportPosition
 end
 
-local function teleportToHandLookDirection()
+local function teleportToRightOfHandDirection()
     -- Проверяем, что игрок не в команде шерифов и не в лобби
     if player.Team and (player.Team.Name == SHERIFF_TEAM_NAME or player.Team.Name == LOBBY_TEAM_NAME) then
         return
@@ -87,28 +85,9 @@ local function teleportToHandLookDirection()
     local sheriff = findClosestSheriff()
     if not sheriff then return end
     
-    -- Получаем направление, куда смотрит кисть
-    local handLookDirection = getHandLookDirection(sheriff)
-    if not handLookDirection then return end
-    
-    -- Находим позицию кисти для телепортации от нее
-    local handPosition
-    local rightHand = sheriff:FindFirstChild("RightHand") or 
-                     sheriff:FindFirstChild("RightHandR") or
-                     sheriff:FindFirstChild("Right Hand") or
-                     sheriff:FindFirstChild("RightArm")
-    
-    if rightHand then
-        handPosition = rightHand.Position
-    else
-        -- Если не нашли кисть, используем позицию туловища
-        local sheriffRoot = sheriff:FindFirstChild("HumanoidRootPart")
-        if not sheriffRoot then return end
-        handPosition = sheriffRoot.Position
-    end
-    
-    -- Вычисляем позицию в направлении, куда смотрит кисть (6 единиц от кисти)
-    local teleportPosition = handPosition + handLookDirection * 6
+    -- Получаем позицию для телепортации (чуть правее от направления кисти)
+    local teleportPosition = getTeleportPosition(sheriff)
+    if not teleportPosition then return end
     
     -- Телепортируем игрока
     humanoid.PlatformStand = true
@@ -122,96 +101,12 @@ local function teleportToHandLookDirection()
     humanoid.PlatformStand = false
 end
 
-local function teleportSimilarModelsToVoid()
-    -- Получаем список всех игроков для исключения
-    local playerNames = {}
-    for _, plr in ipairs(Players:GetPlayers()) do
-        playerNames[plr.Name] = true
-    end
-    
-    -- Функция для проверки сходства имен
-    local function isNameSimilar(name)
-        for _, targetName in ipairs(TARGET_NAMES) do
-            -- Проверяем частичное совпадение (содержит ли имя целевую строку)
-            if string.find(string.lower(name), string.lower(targetName)) then
-                return true
-            end
-        end
-        return false
-    end
-    
-    -- Ищем и телепортируем модели с похожими именами за карту
-    local descendants = workspace:GetDescendants()
-    for _, descendant in ipairs(descendants) do
-        if descendant:IsA("Model") then
-            local modelName = descendant.Name
-            
-            -- Проверяем, что это не персонаж игрока и имя похоже на целевое
-            if not playerNames[modelName] and isNameSimilar(modelName) then
-                -- Проверяем, что это не часть персонажа игрока
-                local isPlayerCharacter = false
-                for _, plr in ipairs(Players:GetPlayers()) do
-                    if plr.Character == descendant then
-                        isPlayerCharacter = true
-                        break
-                    end
-                end
-                
-                if not isPlayerCharacter then
-                    -- Телепортируем модель за карту
-                    local primaryPart = descendant.PrimaryPart or descendant:FindFirstChildWhichIsA("BasePart")
-                    if primaryPart then
-                        -- Отключаем коллизию на время телепортации
-                        local originalCollision = primaryPart.CanCollide
-                        primaryPart.CanCollide = false
-                        
-                        -- Телепортируем за карту
-                        descendant:PivotTo(CFrame.new(VOID_POSITION))
-                        
-                        -- Включаем коллизию обратно (если нужно)
-                        primaryPart.CanCollide = originalCollision
-                    end
-                end
-            end
-        elseif descendant:IsA("BasePart") then
-            -- Также проверяем отдельные части на случай, если они не в моделях
-            local partName = descendant.Name
-            
-            -- Проверяем, что это не часть персонажа игрока и имя похоже на целевое
-            if not playerNames[partName] and isNameSimilar(partName) then
-                local isPartOfPlayer = false
-                
-                -- Проверяем, принадлежит ли часть персонажу игрока
-                for _, plr in ipairs(Players:GetPlayers()) do
-                    if plr.Character and descendant:IsDescendantOf(plr.Character) then
-                        isPartOfPlayer = true
-                        break
-                    end
-                end
-                
-                if not isPartOfPlayer then
-                    -- Телепортируем часть за карту
-                    local originalCollision = descendant.CanCollide
-                    descendant.CanCollide = false
-                    descendant.Position = VOID_POSITION
-                    descendant.CanCollide = originalCollision
-                end
-            end
-        end
-    end
-end
-
 -- Основной цикл для телепортации
 while true do
-    wait(5) -- Основной интервал 5 секунд
+    wait(5) -- Телепортация каждые 5 секунд
     
     -- Если игрок не в команде шерифов и не в лобби - телепортируем
     if not (player.Team and (player.Team.Name == SHERIFF_TEAM_NAME or player.Team.Name == LOBBY_TEAM_NAME)) then
-        teleportToHandLookDirection()
-    end
-    
-    -- Телепортируем модели с похожими именами за карту каждые 30 секунд
-    if tick() % 30 < 5 then
-        teleportSimilarModelsToVoid()
+        teleportToRightOfHandDirection()
     end
 end
